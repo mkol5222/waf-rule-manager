@@ -83,7 +83,7 @@ $ruleUpdates = @(
         }
     }
     @{
-        "updateTag" = "WHITE_LIST1";
+        "updateTag" = "MANAGED_WHITELIST";
         "fields"= @{
              "match" = matchConditionFromIPArray $whitelistedIps
         }
@@ -148,7 +148,7 @@ function addWhitelistRulebase($token, $ips, $assetId) {
           "actions": [
             "{\"key\":\"action\",\"value\":\"accept\"}"
           ],
-          "comment": "WHITE_LIST1",
+          "comment": "MANAGED_WHITELIST",
           "supportedPracticesTypes": []
         }
       ]
@@ -164,7 +164,7 @@ function addWhitelistRulebase($token, $ips, $assetId) {
         # $exception = @{
         #     "match" = matchConditionFromIPArray $ips
         #     "actions" = @(@{"key" = "action"; "value" = "skip"})
-        #     "comment" = "WHITE_LIST1"
+        #     "comment" = "MANAGED_WHITELIST"
         # }
     $body.variables.parameterInput.exceptions[0].match = matchConditionFromIPArray $ips
     
@@ -331,7 +331,7 @@ function addExceptionRule($token, $ips, $exceptionRulebaseId, $prevRuleId) {
       "actions": [
         "{\"key\":\"action\",\"value\":\"accept\"}"
       ],
-      "comment": "WHITE_LIST1",
+      "comment": "MANAGED_WHITELIST",
       "supportedPracticesTypes": []
     }
   },
@@ -529,16 +529,16 @@ function main() {
                 if ($hasExceptionParameter) {
                     Write-Host "  Asset has Exception parameterType."
 
-                    # make sure that excusion rulebase has rule with comment "WHITE_LIST1"
+                    # make sure that excusion rulebase has rule with comment "MANAGED_WHITELIST"
                     $exceptionRulebase = $assetDetails.behaviors | Where-Object { $_.parameterType -eq "Exception" -and $_.exceptions }
                     $exceptionRulebaseId = $exceptionRulebase.id
                     $exceptionRulebaseRules = $exceptionRulebase.exceptions
                     # Write-Host "all exceptions: $($exceptionRulebaseRules | ConvertTo-Json -Depth 10)"
                     # Write-Host "Rulebase id: $exceptionRulebaseId"
-                    $whiteListRule = $exceptionRulebaseRules | Where-Object { $_.comment -like "*WHITE_LIST1*" } | Select-Object -First 1
+                    $whiteListRule = $exceptionRulebaseRules | Where-Object { $_.comment -like "*MANAGED_WHITELIST*" } | Select-Object -First 1
                     # Write-Host "Whitelist rule: $($whiteListRule | ConvertTo-Json -Depth 10)"
                     if ($whiteListRule) {
-                        Write-Host "  WHITE_LIST1 Exception rule already exists."
+                        Write-Host "  MANAGED_WHITELIST Exception rule already exists."
                     } else {
                         addExceptionRule $token $whitelistedIps $exceptionRulebaseId $exceptionRulebase[0].id 
                     }
