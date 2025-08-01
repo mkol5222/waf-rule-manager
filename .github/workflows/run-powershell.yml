@@ -20,8 +20,8 @@ jobs:
     # pwsh is already available in the ubuntu-latest image
     - name: Install PowerShell
       run: |
-        if where pwsh &> /dev/null; then 
-          exit 0; 
+        if command -v pwsh &> /dev/null; then
+          echo "PowerShell is already installed."
         else
           sudo apt-get update
           sudo apt-get install -y wget apt-transport-https software-properties-common
