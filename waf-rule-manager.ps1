@@ -317,6 +317,46 @@ function getAsset($token, $assetId) {
 }
 
 
+function addExceptionRule($token, $ips, $exceptionRulebaseId, $prevRuleId) {
+    Write-Host "Adding exception rule for asset ID: $assetId with IPs: $($ips -join ', ')"
+
+    $bodyTemplate = @'
+{
+  "operationName": "addExceptionExceptionsObject",
+  "variables": {
+    "id": "02cc324f-dd5f-4300-039d-c630dec0fa47",
+    "previousObjectId": "c4cc324f-dd9e-b8b4-11e4-0c66c270e32e",
+    "addObject": {
+      "match": "{\"type\":\"condition\",\"op\":\"equals\",\"key\":\"countryCode\",\"value\":[\"AD\"]}",
+      "actions": [
+        "{\"key\":\"action\",\"value\":\"accept\"}"
+      ],
+      "comment": "WHITE_LIST1",
+      "supportedPracticesTypes": []
+    }
+  },
+  "query": "mutation addExceptionExceptionsObject($addObject: ExceptionObjectInput, $id: ID, $previousObjectId: ID) {\n  addExceptionExceptionsObject(\n    addObject: $addObject\n    id: $id\n    previousObjectId: $previousObjectId\n  ) {\n    id\n    match\n    comment\n    actions {\n      id\n      action\n      __typename\n    }\n    supportedPracticesTypes {\n      id\n      practiceType\n      __typename\n    }\n    __typename\n  }\n}\n"
+}
+'@
+
+$body = $bodyTemplate | ConvertFrom-Json
+    $body.variables.id = $exceptionRulebaseId
+    $body.variables.previousObjectId = $null #$prevRuleId
+    $body.variables.addObject.match = matchConditionFromIPArray $ips
+
+    Write-Host "Calling" ($body | ConvertTo-Json -Depth 10)
+
+    $url = 'https://cloudinfra-gw.portal.checkpoint.com/app/waf//graphql' 
+    $headers = @{
+        "Content-Type" = "application/json";
+        "Authorization" = "Bearer $($token)"
+    }
+    $body = $body | ConvertTo-Json -Depth 10
+    # Write-Host "Request Body: $body"
+    $response = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body $body
+    Write-Host "Response: $($response | ConvertTo-Json -Depth 10)"
+
+}
 
 function updateException($token, $behaviorId, $exceptionId, $updateFields, $currentException) {
     Write-Host "    Updating exception ID: $exceptionId in behavior ID: $behaviorId "
@@ -488,6 +528,21 @@ function main() {
                 $hasExceptionParameter = $assetDetails.behaviors | Where-Object { $_.parameterType -eq "Exception" }
                 if ($hasExceptionParameter) {
                     Write-Host "  Asset has Exception parameterType."
+
+                    # make sure that excusion rulebase has rule with comment "WHITE_LIST1"
+                    $exceptionRulebase = $assetDetails.behaviors | Where-Object { $_.parameterType -eq "Exception" -and $_.exceptions }
+                    $exceptionRulebaseId = $exceptionRulebase.id
+                    $exceptionRulebaseRules = $exceptionRulebase.exceptions
+                    # Write-Host "all exceptions: $($exceptionRulebaseRules | ConvertTo-Json -Depth 10)"
+                    # Write-Host "Rulebase id: $exceptionRulebaseId"
+                    $whiteListRule = $exceptionRulebaseRules | Where-Object { $_.comment -like "*WHITE_LIST1*" } | Select-Object -First 1
+                    # Write-Host "Whitelist rule: $($whiteListRule | ConvertTo-Json -Depth 10)"
+                    if ($whiteListRule) {
+                        Write-Host "  WHITE_LIST1 Exception rule already exists."
+                    } else {
+                        addExceptionRule $token $whitelistedIps $exceptionRulebaseId $exceptionRulebase[0].id 
+                    }
+
                 } else {
                     Write-Host "  Asset does NOT have Exception parameterType."
 
