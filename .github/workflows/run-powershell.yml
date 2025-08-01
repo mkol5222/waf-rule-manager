@@ -8,9 +8,7 @@ jobs:
     name: manage WAF rules
     runs-on: ubuntu-latest
 
-    env:
-      WAF_API_KEY: ${{ secrets.WAFKEY }}
-      WAF_API_KEY_SECRET: ${{ secrets.WAFSECRET }}
+
 
     steps:
     - name: Checkout repository
@@ -28,6 +26,9 @@ jobs:
 
     - name: Run PowerShell script
       shell: pwsh
+      env:
+        WAF_API_KEY: ${{ secrets.WAF_API_KEY }}
+        WAF_API_KEY_SECRET: ${{ secrets.WAF_API_KEY_SECRET }}
       run: |
         Write-Host "Running PowerShell script..."
         ./waf-rule-manager.ps1
