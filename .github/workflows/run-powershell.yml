@@ -1,7 +1,10 @@
 name: Run PowerShell Script
 
 on:
-  workflow_dispatch:  # manually trigger or change to your desired event
+  workflow_dispatch:  # manually trigger
+  push:
+    branches:
+      - main  # activate on commit to the main branch
 
 jobs:
   manage-waf-rules:

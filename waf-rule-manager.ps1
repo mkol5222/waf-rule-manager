@@ -2,69 +2,96 @@
 
 
 $testIPs = @()
-$testIPs = (irm "https://quic.cloud/ips?json") 
-# Write-Host "Test IPs: $testIPs"
 
-$whitelistedIps = $testIPs + @(
-    "1.1.1.1",
-    "8.8.8.8",
-    "8.8.4.4",
-    "169.254.0.1",
-    "169.254.0.2", "169.254.0.3"
-)
+function isValidIP($ip) {
+    return $ip -match '^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+}
+
+function readIPsFromCsv($filePath) {
+    if (-not (Test-Path $filePath)) {
+        Write-Host "File not found: $filePath"
+        return @()
+    }
+
+    $ips = @()
+    try {
+        $csvContent = Import-Csv -Path $filePath
+        foreach ($row in $csvContent) {
+            if (-not [string]::IsNullOrEmpty($row.IP) -and (isValidIP($row.IP))) {
+                $ips += $row.IP
+            } else {
+                Write-Host "Invalid IP found in CSV: $($row.IP)"
+            }
+        }
+    } catch {
+        Write-Host "Error reading CSV file: $_"
+    }
+    return $ips
+}
+
+# # optional dowload JSON of IPs from feed
+# $testIPs = (irm "https://quic.cloud/ips?json") 
+# # Write-Host "Test IPs: $testIPs"
+
+
+function matchConditionFromIPArray($ips) {
+    # {"type":"condition","op":"in","key":"sourceIdentifier","value":["1.1.1.1","8.8.8.8","8.8.4.4"]}
+    $condition = @{
+        "type" = "condition";
+        "op" = "in";
+        "key" = "sourceIdentifier";
+        "value" = $ips
+    }
+    return $condition | ConvertTo-Json -Depth 10 -Compress
+}
+
+# $whitelistedIps =  @(
+#     "1.1.1.1",
+#     "8.8.8.8",
+#     "8.8.4.4",
+#     "169.254.0.1",
+#     "169.254.0.2", "169.254.0.3"
+# ) + (irm "https://quic.cloud/ips?json") 
 # $whitelistedIps += $testIPs
+
+$whitelistedIps = readIPsFromCsv "data/whitelist.csv"
 
 $whitelistedIps2 = @(
     "1.1.1.1",
     "8.8.8.8",
     "8.8.4.4"
-)
+) 
 
-$blockedIps =  @(
-    "8.8.4.4",
-    "8.8.8.8",
-    "100.100.1.1",
-    "100.100.1.2", "100.100.1.3", "100.100.1.4"
-)
+$blockedIps = readIPsFromCsv "data/blacklist.csv"
+# $blockedIps =  @(
+#     "8.8.4.4",
+#     "8.8.8.8",
+#     "100.100.1.1",
+#     "100.100.1.2", "100.100.1.3", "100.100.1.4"
+# )
 
-$whitelistJson = @'
-{"type":"condition","op":"in","key":"sourceIdentifier","value":["1.1.1.1","8.8.8.8","8.8.4.4"]}
-'@
-$whitelistData = $whitelistJson | ConvertFrom-Json 
-$whitelistData.value = $whitelistedIps
-$whitelistJson = $whitelistData | ConvertTo-Json -Depth 10 -Compress
 
-$whitelistJson2 = @'
-{"type":"condition","op":"in","key":"sourceIdentifier","value":["1.1.1.1","8.8.8.8","8.8.4.4"]}
-'@
-$whitelistData2 = $whitelistJson2 | ConvertFrom-Json 
-$whitelistData2.value = $whitelistedIps2
-$whitelistJson2 = $whitelistData2 | ConvertTo-Json -Depth 10 -Compress
 
-$blocklistJson = @'
-{"type":"condition","op":"in","key":"sourceIdentifier","value":["8.8.4.4","8.8.8.8"]}
-'@
-$blocklistData = $blocklistJson | ConvertFrom-Json
-$blocklistData.value = $blockedIps
-$blocklistJson = $blocklistData | ConvertTo-Json -Depth 10  -Compress
+
+
 
 $ruleUpdates = @(
     @{
         "updateTag" = "BLOCK_LIST1";
         "fields" = @{
-             "match" = $blocklistJson
+             "match" = matchConditionFromIPArray $blockedIps
         }
     }
     @{
         "updateTag" = "WHITE_LIST1";
         "fields"= @{
-             "match" = $whitelistJson
+             "match" = matchConditionFromIPArray $whitelistedIps
         }
     }  
         @{
         "updateTag" = "WHITE_LIST2";
         "fields"= @{
-             "match" = $whitelistJson2
+             "match" = matchConditionFromIPArray $whitelistedIps2
         }
     }  
 )
