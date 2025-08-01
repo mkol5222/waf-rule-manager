@@ -344,7 +344,7 @@ $body = $bodyTemplate | ConvertFrom-Json
     $body.variables.previousObjectId = $null #$prevRuleId
     $body.variables.addObject.match = matchConditionFromIPArray $ips
 
-    Write-Host "Calling" ($body | ConvertTo-Json -Depth 10)
+    # Write-Host "Calling" ($body | ConvertTo-Json -Depth 10)
 
     $url = 'https://cloudinfra-gw.portal.checkpoint.com/app/waf//graphql' 
     $headers = @{
