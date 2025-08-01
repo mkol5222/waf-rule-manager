@@ -132,6 +132,72 @@ function login {
     return $null
 }
 
+function addWhitelistRulebase($token, $ips, $assetId) {
+     $bodyTemplate = @'
+    {
+  "query": "mutation newExceptionBehavior($ownerId: ID, $practiceId: ID, $behaviorInput: ExceptionBehaviorInput) { newExceptionBehavior(ownerId: $ownerId, practiceId: $practiceId, behaviorInput: $behaviorInput) {id name visibility exceptions {id match actions { id action } comment } } }",
+  "variables": {
+    "behaviorInput": {
+      "name": "ruleset_one",
+      "visibility": "Shared",
+      "exceptions": [
+        {
+          "match": "{\"type\":\"condition\",\"op\":\"not-in\",\"key\":\"sourceIdentifier\",\"value\":[\"1.2.3.4\",\"3.4.5.6\"]}",
+          "actions": [
+            "{\"key\":\"action\",\"value\":\"drop\"}"
+          ],
+          "comment": "rule a"
+        },
+        {
+          "match": "{\"type\":\"condition\",\"op\":\"not-in\",\"key\":\"sourceIdentifier\",\"value\":[\"100.2.3.4\",\"5.4.5.6\"]}",
+          "actions": [
+            "{\"key\":\"action\",\"value\":\"drop\"}"
+          ],
+          "comment": "rule c"
+        },
+        {
+          "match": "{\"type\":\"condition\",\"op\":\"not-in\",\"key\":\"sourceIdentifier\",\"value\":[\"13.2.3.4\",\"5.4.5.6\"]}",
+          "actions": [
+            "{\"key\":\"action\",\"value\":\"drop\"}"
+          ],
+          "comment": "rule b2"
+        }
+      ]
+    },
+    "ownerId": null,
+    "practiceId": null
+  }
+}
+'@
+
+    $body = $bodyTemplate | ConvertFrom-Json
+    $body.variables.behaviorInput.exceptions = @()
+    
+        $exception = @{
+            "match" = matchConditionFromIPArray $ips
+            "actions" = @(@{"key" = "action"; "value" = "skip"})
+            "comment" = "WHITE_LIST1"
+        }
+        $body.variables.behaviorInput.exceptions += $exception
+        $body.variables.ownerId = $assetId
+    
+
+    $url = "https://cloudinfra-gw.portal.checkpoint.com/app/waf//graphql"
+    $headers = @{
+        "Content-Type" = "application/json";
+        "Authorization" = "Bearer $($token)"
+    }
+
+    $response = Invoke-RestMethod -Uri $url -Method Post -Headers $headers -Body ($body | ConvertTo-Json -Depth 10)
+    if ($response -and $response.data -and $response.data.newExceptionBehavior) {
+        Write-Host "Whitelist rulebase created successfully."
+        return $response.data.newExceptionBehavior
+    } else {
+        Write-Host "Failed to create whitelist rulebase."
+        exit 1
+    }
+}
+
 function getApiAssets($token) {
     $body = @'
 {
@@ -190,6 +256,7 @@ function getAsset($token, $assetId) {
 
     query GetAssetQuery($assetId: String!) {
   getAsset(id: $assetId) {
+   tags { tag id }
    id name
     behaviors {
       id
@@ -357,7 +424,7 @@ function publish($token) {
 }
 '@
 
-    $url = "https://cloudinfra-gw.portal.checkpoint.com/app/waf//graphql"
+    $url = "https://cloudinfra-gw.portal.checkpoint.com/app/waf/graphql"
     $headers = @{
         "Content-Type" = "application/json";
         "Authorization" = "Bearer $($token)"
@@ -419,6 +486,26 @@ function main() {
         Write-Host "Processing Asset ID: $($asset.id), Name: $($asset.name), Type: $($asset.assetType)"
         $assetDetails = getAsset $token $asset.id
         if ($assetDetails) {
+
+            Write-Host "  Tags: $($assetDetails.tags | ForEach-Object { $_.tag } | Out-String)"
+            $isManagedWhitelist = ($assetDetails.tags | ForEach-Object { $_.tag }) -contains "MANAGED_WHITELIST"
+            if ($isManagedWhitelist) {
+                Write-Host "  !!! managed whitelist."
+
+                # has Exception parameterType
+                $hasExceptionParameter = $assetDetails.behaviors | Where-Object { $_.parameterType -eq "Exception" }
+                if ($hasExceptionParameter) {
+                    Write-Host "  Asset has Exception parameterType."
+                } else {
+                    Write-Host "  Asset does NOT have Exception parameterType."
+
+                    # addWhitelistRulebase($token, $ips, $assetId) 
+                    # $whitelistRulebase = addWhitelistRulebase $token $whitelistedIps $asset.id
+                    # Write-Host "  Whitelist rulebase created: $($whitelistRulebase | ConvertTo-Json -Depth 10)"
+                }
+            } else {
+                # Write-Host "  Asset is NOT managed whitelist."
+            }
             # Write-Host "Asset Details: $($assetDetails | ConvertTo-Json -Depth 10)"
 
             # iterate behaviours of parameterType Exceprion - in exceptions field array
