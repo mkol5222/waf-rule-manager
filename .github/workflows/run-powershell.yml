@@ -18,19 +18,28 @@ jobs:
       uses: actions/checkout@v4
      
     # pwsh is already available in the ubuntu-latest image
-    - name: Install PowerShell
-      run: |
-        if command -v pwsh &> /dev/null; then
-          echo "PowerShell is already installed."
-        else
-          sudo apt-get update
-          sudo apt-get install -y wget apt-transport-https software-properties-common
-          wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
-          sudo dpkg -i packages-microsoft-prod.deb
-          sudo apt-get update
-          sudo apt-get install -y powershell
-        fi
+    # - name: Install PowerShell
+    #   run: |
+    #     if command -v pwsh &> /dev/null; then
+    #       echo "PowerShell is already installed."
+    #     else
+    #       sudo apt-get update
+    #       sudo apt-get install -y wget apt-transport-https software-properties-common
+    #       wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/packages-microsoft-prod.deb"
+    #       sudo dpkg -i packages-microsoft-prod.deb
+    #       sudo apt-get update
+    #       sudo apt-get install -y powershell
+    #     fi
 
+    - name: Install PowerShell
+      uses: PSModule/install-powershell@v1
+      with:
+        Version: latest
+
+    - name: Run a PowerShell script
+      shell: pwsh
+      run: |
+        Write-Host "Using PowerShell $($PSVersionTable.PSVersion)"
     - name: Run PowerShell script
       shell: pwsh
       env:
